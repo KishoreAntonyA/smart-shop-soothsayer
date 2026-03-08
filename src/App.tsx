@@ -2,7 +2,8 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import AppLayout from "@/components/AppLayout";
 import Dashboard from "@/pages/Dashboard";
 import UdharPage from "@/pages/UdharPage";
@@ -10,9 +11,45 @@ import ExpensesPage from "@/pages/ExpensesPage";
 import ProfitPage from "@/pages/ProfitPage";
 import InventoryPage from "@/pages/InventoryPage";
 import DeliveriesPage from "@/pages/DeliveriesPage";
+import AuthPage from "@/pages/AuthPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
+
+function ProtectedRoutes() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+      </div>
+    );
+  }
+
+  if (!user) return <Navigate to="/auth" replace />;
+
+  return (
+    <AppLayout>
+      <Routes>
+        <Route path="/" element={<Dashboard />} />
+        <Route path="/udhar" element={<UdharPage />} />
+        <Route path="/expenses" element={<ExpensesPage />} />
+        <Route path="/profit" element={<ProfitPage />} />
+        <Route path="/inventory" element={<InventoryPage />} />
+        <Route path="/deliveries" element={<DeliveriesPage />} />
+        <Route path="*" element={<NotFound />} />
+      </Routes>
+    </AppLayout>
+  );
+}
+
+function AuthGuard() {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  if (user) return <Navigate to="/" replace />;
+  return <AuthPage />;
+}
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -20,17 +57,12 @@ const App = () => (
       <Toaster />
       <Sonner />
       <BrowserRouter>
-        <AppLayout>
+        <AuthProvider>
           <Routes>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/udhar" element={<UdharPage />} />
-            <Route path="/expenses" element={<ExpensesPage />} />
-            <Route path="/profit" element={<ProfitPage />} />
-            <Route path="/inventory" element={<InventoryPage />} />
-            <Route path="/deliveries" element={<DeliveriesPage />} />
-            <Route path="*" element={<NotFound />} />
+            <Route path="/auth" element={<AuthGuard />} />
+            <Route path="/*" element={<ProtectedRoutes />} />
           </Routes>
-        </AppLayout>
+        </AuthProvider>
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
