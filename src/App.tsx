@@ -11,6 +11,13 @@ import ExpensesPage from "@/pages/ExpensesPage";
 import ProfitPage from "@/pages/ProfitPage";
 import InventoryPage from "@/pages/InventoryPage";
 import DeliveriesPage from "@/pages/DeliveriesPage";
+import GSTBillingPage from "@/pages/GSTBillingPage";
+import UPITrackingPage from "@/pages/UPITrackingPage";
+import BusinessInsightsPage from "@/pages/BusinessInsightsPage";
+import NotificationsPage from "@/pages/NotificationsPage";
+import BarcodeScannerPage from "@/pages/BarcodeScannerPage";
+import VoiceEntryPage from "@/pages/VoiceEntryPage";
+import MultiShopPage from "@/pages/MultiShopPage";
 import AuthPage from "@/pages/AuthPage";
 import NotFound from "./pages/NotFound";
 
@@ -38,6 +45,13 @@ function ProtectedRoutes() {
         <Route path="/profit" element={<ProfitPage />} />
         <Route path="/inventory" element={<InventoryPage />} />
         <Route path="/deliveries" element={<DeliveriesPage />} />
+        <Route path="/gst-billing" element={<GSTBillingPage />} />
+        <Route path="/upi-tracking" element={<UPITrackingPage />} />
+        <Route path="/insights" element={<BusinessInsightsPage />} />
+        <Route path="/notifications" element={<NotificationsPage />} />
+        <Route path="/barcode" element={<BarcodeScannerPage />} />
+        <Route path="/voice-entry" element={<VoiceEntryPage />} />
+        <Route path="/multi-shop" element={<MultiShopPage />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </AppLayout>
