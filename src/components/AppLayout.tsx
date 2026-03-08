@@ -11,6 +11,13 @@ import {
   X,
   Store,
   LogOut,
+  Receipt,
+  Smartphone,
+  BarChart3,
+  Bell,
+  ScanBarcode,
+  Mic,
+  Building2,
 } from "lucide-react";
 import { useAuth } from "@/contexts/AuthContext";
 
@@ -21,6 +28,13 @@ const navItems = [
   { path: "/profit", label: "Profit", icon: TrendingUp },
   { path: "/inventory", label: "Inventory", icon: Package },
   { path: "/deliveries", label: "Deliveries", icon: Truck },
+  { path: "/gst-billing", label: "GST Billing", icon: Receipt },
+  { path: "/upi-tracking", label: "UPI Payments", icon: Smartphone },
+  { path: "/barcode", label: "Barcode Scan", icon: ScanBarcode },
+  { path: "/voice-entry", label: "Voice Entry", icon: Mic },
+  { path: "/insights", label: "Insights", icon: BarChart3 },
+  { path: "/multi-shop", label: "Multi-Shop", icon: Building2 },
+  { path: "/notifications", label: "Notifications", icon: Bell },
 ];
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
