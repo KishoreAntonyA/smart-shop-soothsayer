@@ -35,10 +35,34 @@ const statusStyles = { confirmed: "bg-success/10 text-success border-success/20"
 export default function UPITrackingPage() {
   const [payments, setPayments] = useState(initialPayments);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [upiDialogOpen, setUpiDialogOpen] = useState(false);
   const [txnId, setTxnId] = useState("");
   const [amount, setAmount] = useState("");
   const [from, setFrom] = useState("");
   const [provider, setProvider] = useState("Google Pay");
+  const [upiId, setUpiId] = useState("");
+  const [savedUpiId, setSavedUpiId] = useState<string | null>(null);
+  const [upiProvider, setUpiProvider] = useState("Google Pay");
+  const [copied, setCopied] = useState(false);
+
+  const handleConnectUpi = () => {
+    if (!upiId.trim() || !upiId.includes("@")) {
+      toast({ title: "Invalid UPI ID", description: "Enter a valid UPI ID (e.g. yourname@upi)", variant: "destructive" });
+      return;
+    }
+    setSavedUpiId(upiId.trim());
+    setUpiDialogOpen(false);
+    toast({ title: "UPI ID Connected", description: `${upiId.trim()} via ${upiProvider} is now linked.` });
+  };
+
+  const handleCopyUpi = () => {
+    if (savedUpiId) {
+      navigator.clipboard.writeText(savedUpiId);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      toast({ title: "Copied to clipboard" });
+    }
+  };
 
   const totalReceived = payments.filter((p) => p.status === "confirmed").reduce((s, p) => s + p.amount, 0);
   const pendingAmount = payments.filter((p) => p.status === "pending").reduce((s, p) => s + p.amount, 0);
