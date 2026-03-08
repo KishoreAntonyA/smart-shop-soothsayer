@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Search, CreditCard, Smartphone } from "lucide-react";
+import { Plus, Search, CreditCard, Smartphone, Link2, Copy, CheckCheck, Settings2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -35,10 +35,34 @@ const statusStyles = { confirmed: "bg-success/10 text-success border-success/20"
 export default function UPITrackingPage() {
   const [payments, setPayments] = useState(initialPayments);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [upiDialogOpen, setUpiDialogOpen] = useState(false);
   const [txnId, setTxnId] = useState("");
   const [amount, setAmount] = useState("");
   const [from, setFrom] = useState("");
   const [provider, setProvider] = useState("Google Pay");
+  const [upiId, setUpiId] = useState("");
+  const [savedUpiId, setSavedUpiId] = useState<string | null>(null);
+  const [upiProvider, setUpiProvider] = useState("Google Pay");
+  const [copied, setCopied] = useState(false);
+
+  const handleConnectUpi = () => {
+    if (!upiId.trim() || !upiId.includes("@")) {
+      toast({ title: "Invalid UPI ID", description: "Enter a valid UPI ID (e.g. yourname@upi)", variant: "destructive" });
+      return;
+    }
+    setSavedUpiId(upiId.trim());
+    setUpiDialogOpen(false);
+    toast({ title: "UPI ID Connected", description: `${upiId.trim()} via ${upiProvider} is now linked.` });
+  };
+
+  const handleCopyUpi = () => {
+    if (savedUpiId) {
+      navigator.clipboard.writeText(savedUpiId);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+      toast({ title: "Copied to clipboard" });
+    }
+  };
 
   const totalReceived = payments.filter((p) => p.status === "confirmed").reduce((s, p) => s + p.amount, 0);
   const pendingAmount = payments.filter((p) => p.status === "pending").reduce((s, p) => s + p.amount, 0);
@@ -80,6 +104,74 @@ export default function UPITrackingPage() {
           </DialogContent>
         </Dialog>
       </div>
+
+      {/* UPI Connection Card */}
+      <div className="rounded-xl border border-border bg-card p-4">
+        {savedUpiId ? (
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className="rounded-lg bg-success/10 p-2.5"><Link2 className="h-5 w-5 text-success" /></div>
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">Connected UPI ID</p>
+                <p className="text-sm font-bold text-card-foreground">{savedUpiId}</p>
+                <p className="text-xs text-muted-foreground">via {upiProvider}</p>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" size="sm" onClick={handleCopyUpi} className="gap-1.5">
+                {copied ? <CheckCheck className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                {copied ? "Copied" : "Copy"}
+              </Button>
+              <Button variant="ghost" size="sm" onClick={() => setUpiDialogOpen(true)}>
+                <Settings2 className="h-3.5 w-3.5" />
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-3 py-2 sm:flex-row sm:justify-between">
+            <div className="flex items-center gap-3">
+              <div className="rounded-lg bg-primary/10 p-2.5"><Smartphone className="h-5 w-5 text-primary" /></div>
+              <div>
+                <p className="text-sm font-semibold text-card-foreground">Connect your UPI ID</p>
+                <p className="text-xs text-muted-foreground">Link your UPI to receive & track payments</p>
+              </div>
+            </div>
+            <Button size="sm" onClick={() => setUpiDialogOpen(true)} className="gap-1.5">
+              <Link2 className="h-4 w-4" /> Connect UPI
+            </Button>
+          </div>
+        )}
+      </div>
+
+      {/* Connect UPI Dialog */}
+      <Dialog open={upiDialogOpen} onOpenChange={setUpiDialogOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Connect UPI ID</DialogTitle></DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <Label>Your UPI ID</Label>
+              <Input placeholder="e.g. yourshop@okaxis" value={upiId} onChange={(e) => setUpiId(e.target.value)} />
+              <p className="text-xs text-muted-foreground">This is the UPI ID where you receive payments</p>
+            </div>
+            <div className="space-y-2">
+              <Label>UPI Provider</Label>
+              <Select value={upiProvider} onValueChange={setUpiProvider}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Google Pay">Google Pay</SelectItem>
+                  <SelectItem value="PhonePe">PhonePe</SelectItem>
+                  <SelectItem value="Paytm">Paytm</SelectItem>
+                  <SelectItem value="BHIM">BHIM</SelectItem>
+                  <SelectItem value="Other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <Button className="w-full" onClick={handleConnectUpi} disabled={!upiId.trim()}>
+              {savedUpiId ? "Update UPI ID" : "Connect UPI ID"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard title="Total Received" value={formatCurrency(totalReceived)} icon={CheckCircle} variant="success" />
