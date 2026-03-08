@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Plus, Search, CreditCard, Smartphone, Link2, Copy, CheckCheck, Settings2 } from "lucide-react";
+import { Plus, Smartphone, Link2, Copy, CheckCheck, Settings2, QrCode, Download } from "lucide-react";
+import { QRCodeCanvas } from "qrcode.react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -7,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import StatCard from "@/components/StatCard";
-import { IndianRupee, CheckCircle, Clock } from "lucide-react";
+import { CheckCircle, Clock } from "lucide-react";
 import { formatCurrency } from "@/lib/mockData";
 import { toast } from "@/hooks/use-toast";
 
@@ -36,6 +37,7 @@ export default function UPITrackingPage() {
   const [payments, setPayments] = useState(initialPayments);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [upiDialogOpen, setUpiDialogOpen] = useState(false);
+  const [qrDialogOpen, setQrDialogOpen] = useState(false);
   const [txnId, setTxnId] = useState("");
   const [amount, setAmount] = useState("");
   const [from, setFrom] = useState("");
@@ -44,6 +46,7 @@ export default function UPITrackingPage() {
   const [savedUpiId, setSavedUpiId] = useState<string | null>(null);
   const [upiProvider, setUpiProvider] = useState("Google Pay");
   const [copied, setCopied] = useState(false);
+  const [qrAmount, setQrAmount] = useState("");
 
   const handleConnectUpi = () => {
     if (!upiId.trim() || !upiId.includes("@")) {
@@ -62,6 +65,21 @@ export default function UPITrackingPage() {
       setTimeout(() => setCopied(false), 2000);
       toast({ title: "Copied to clipboard" });
     }
+  };
+
+  const upiDeepLink = savedUpiId
+    ? `upi://pay?pa=${encodeURIComponent(savedUpiId)}&pn=${encodeURIComponent("Shop")}&cu=INR${qrAmount ? `&am=${qrAmount}` : ""}`
+    : "";
+
+  const handleDownloadQr = () => {
+    const canvas = document.querySelector("#upi-qr-canvas canvas") as HTMLCanvasElement;
+    if (!canvas) return;
+    const url = canvas.toDataURL("image/png");
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `upi-qr-${savedUpiId}.png`;
+    a.click();
+    toast({ title: "QR code downloaded" });
   };
 
   const totalReceived = payments.filter((p) => p.status === "confirmed").reduce((s, p) => s + p.amount, 0);
@@ -117,7 +135,10 @@ export default function UPITrackingPage() {
                 <p className="text-xs text-muted-foreground">via {upiProvider}</p>
               </div>
             </div>
-            <div className="flex gap-2">
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" onClick={() => setQrDialogOpen(true)} className="gap-1.5">
+                <QrCode className="h-3.5 w-3.5" /> Show QR
+              </Button>
               <Button variant="outline" size="sm" onClick={handleCopyUpi} className="gap-1.5">
                 {copied ? <CheckCheck className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
                 {copied ? "Copied" : "Copy"}
@@ -168,6 +189,27 @@ export default function UPITrackingPage() {
             </div>
             <Button className="w-full" onClick={handleConnectUpi} disabled={!upiId.trim()}>
               {savedUpiId ? "Update UPI ID" : "Connect UPI ID"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* QR Code Dialog */}
+      <Dialog open={qrDialogOpen} onOpenChange={setQrDialogOpen}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader><DialogTitle>Payment QR Code</DialogTitle></DialogHeader>
+          <div className="flex flex-col items-center gap-4 py-4">
+            <div id="upi-qr-canvas" className="rounded-xl border border-border bg-white p-4">
+              <QRCodeCanvas value={upiDeepLink} size={200} level="H" includeMargin />
+            </div>
+            <p className="text-sm font-semibold text-card-foreground">{savedUpiId}</p>
+            <div className="w-full space-y-2">
+              <Label>Amount (optional)</Label>
+              <Input type="number" placeholder="e.g. 500" value={qrAmount} onChange={(e) => setQrAmount(e.target.value)} />
+              <p className="text-xs text-muted-foreground">Set amount to generate a fixed-amount QR</p>
+            </div>
+            <Button variant="outline" className="w-full gap-2" onClick={handleDownloadQr}>
+              <Download className="h-4 w-4" /> Download QR Code
             </Button>
           </div>
         </DialogContent>
