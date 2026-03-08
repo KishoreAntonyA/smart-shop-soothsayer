@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Phone, AlertTriangle, Plus, Search } from "lucide-react";
+import { Phone, AlertTriangle, Plus, Search, Pencil, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,16 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { customers as initialCustomers, transactions as initialTransactions, formatCurrency } from "@/lib/mockData";
 import { toast } from "@/hooks/use-toast";
 
@@ -25,12 +35,16 @@ export default function UdharPage() {
   const [customers, setCustomers] = useState(initialCustomers);
   const [txns, setTxns] = useState(initialTransactions);
   const [dialogOpen, setDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [creditDialogOpen, setCreditDialogOpen] = useState(false);
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false);
+  const [deleteId, setDeleteId] = useState<string | null>(null);
   const [selectedCustomerId, setSelectedCustomerId] = useState<string | null>(null);
 
   const [newName, setNewName] = useState("");
   const [newPhone, setNewPhone] = useState("");
+  const [editName, setEditName] = useState("");
+  const [editPhone, setEditPhone] = useState("");
   const [creditAmount, setCreditAmount] = useState("");
   const [creditDesc, setCreditDesc] = useState("");
   const [paymentAmount, setPaymentAmount] = useState("");
@@ -42,51 +56,56 @@ export default function UdharPage() {
 
   const handleAddCustomer = () => {
     if (!newName.trim() || !newPhone.trim()) return;
-    const newCustomer = {
-      id: String(Date.now()),
-      name: newName.trim(),
-      phone: newPhone.trim(),
-      balance: 0,
-      lastPayment: new Date().toISOString().split("T")[0],
-      riskLevel: "low",
-    };
-    setCustomers((prev) => [newCustomer, ...prev]);
-    setNewName("");
-    setNewPhone("");
-    setDialogOpen(false);
-    toast({ title: "Customer added", description: `${newCustomer.name} has been added.` });
+    setCustomers((prev) => [
+      { id: String(Date.now()), name: newName.trim(), phone: newPhone.trim(), balance: 0, lastPayment: new Date().toISOString().split("T")[0], riskLevel: "low" },
+      ...prev,
+    ]);
+    setNewName(""); setNewPhone(""); setDialogOpen(false);
+    toast({ title: "Customer added" });
+  };
+
+  const handleEditCustomer = () => {
+    if (!editName.trim() || !editPhone.trim() || !selectedCustomerId) return;
+    setCustomers((prev) =>
+      prev.map((c) => c.id === selectedCustomerId ? { ...c, name: editName.trim(), phone: editPhone.trim() } : c)
+    );
+    setEditDialogOpen(false);
+    toast({ title: "Customer updated" });
+  };
+
+  const handleDeleteCustomer = () => {
+    if (!deleteId) return;
+    setCustomers((prev) => prev.filter((c) => c.id !== deleteId));
+    setTxns((prev) => prev.filter((t) => t.customerId !== deleteId));
+    setDeleteId(null);
+    toast({ title: "Customer deleted" });
+  };
+
+  const openEdit = (id: string) => {
+    const c = customers.find((c) => c.id === id);
+    if (!c) return;
+    setSelectedCustomerId(id);
+    setEditName(c.name);
+    setEditPhone(c.phone);
+    setEditDialogOpen(true);
   };
 
   const handleAddCredit = () => {
     const amount = Number(creditAmount);
     if (!amount || !selectedCustomerId) return;
-    setCustomers((prev) =>
-      prev.map((c) => (c.id === selectedCustomerId ? { ...c, balance: c.balance + amount } : c))
-    );
-    setTxns((prev) => [
-      { id: String(Date.now()), customerId: selectedCustomerId, type: "credit" as const, amount, date: new Date().toISOString().split("T")[0], description: creditDesc || "Credit sale" },
-      ...prev,
-    ]);
-    setCreditAmount("");
-    setCreditDesc("");
-    setCreditDialogOpen(false);
-    toast({ title: "Credit added", description: `${formatCurrency(amount)} credit recorded.` });
+    setCustomers((prev) => prev.map((c) => (c.id === selectedCustomerId ? { ...c, balance: c.balance + amount } : c)));
+    setTxns((prev) => [{ id: String(Date.now()), customerId: selectedCustomerId, type: "credit" as const, amount, date: new Date().toISOString().split("T")[0], description: creditDesc || "Credit sale" }, ...prev]);
+    setCreditAmount(""); setCreditDesc(""); setCreditDialogOpen(false);
+    toast({ title: "Credit added" });
   };
 
   const handleRecordPayment = () => {
     const amount = Number(paymentAmount);
     if (!amount || !selectedCustomerId) return;
-    setCustomers((prev) =>
-      prev.map((c) => (c.id === selectedCustomerId ? { ...c, balance: c.balance - amount, lastPayment: new Date().toISOString().split("T")[0] } : c))
-    );
-    setTxns((prev) => [
-      { id: String(Date.now()), customerId: selectedCustomerId, type: "payment" as const, amount, date: new Date().toISOString().split("T")[0], description: paymentDesc || "Payment received" },
-      ...prev,
-    ]);
-    setPaymentAmount("");
-    setPaymentDesc("");
-    setPaymentDialogOpen(false);
-    toast({ title: "Payment recorded", description: `${formatCurrency(amount)} payment received.` });
+    setCustomers((prev) => prev.map((c) => (c.id === selectedCustomerId ? { ...c, balance: c.balance - amount, lastPayment: new Date().toISOString().split("T")[0] } : c)));
+    setTxns((prev) => [{ id: String(Date.now()), customerId: selectedCustomerId, type: "payment" as const, amount, date: new Date().toISOString().split("T")[0], description: paymentDesc || "Payment received" }, ...prev]);
+    setPaymentAmount(""); setPaymentDesc(""); setPaymentDialogOpen(false);
+    toast({ title: "Payment recorded" });
   };
 
   return (
@@ -103,17 +122,9 @@ export default function UdharPage() {
           <DialogContent>
             <DialogHeader><DialogTitle>Add New Customer</DialogTitle></DialogHeader>
             <div className="space-y-4 pt-2">
-              <div className="space-y-2">
-                <Label>Customer Name</Label>
-                <Input placeholder="e.g. Rajesh Kumar" value={newName} onChange={(e) => setNewName(e.target.value)} />
-              </div>
-              <div className="space-y-2">
-                <Label>Phone Number</Label>
-                <Input placeholder="e.g. 9876543210" value={newPhone} onChange={(e) => setNewPhone(e.target.value)} />
-              </div>
-              <Button className="w-full" onClick={handleAddCustomer} disabled={!newName.trim() || !newPhone.trim()}>
-                Add Customer
-              </Button>
+              <div className="space-y-2"><Label>Customer Name</Label><Input placeholder="e.g. Rajesh Kumar" value={newName} onChange={(e) => setNewName(e.target.value)} /></div>
+              <div className="space-y-2"><Label>Phone Number</Label><Input placeholder="e.g. 9876543210" value={newPhone} onChange={(e) => setNewPhone(e.target.value)} /></div>
+              <Button className="w-full" onClick={handleAddCustomer} disabled={!newName.trim() || !newPhone.trim()}>Add Customer</Button>
             </div>
           </DialogContent>
         </Dialog>
@@ -124,19 +135,25 @@ export default function UdharPage() {
         <Input placeholder="Search customers..." className="pl-10" value={search} onChange={(e) => setSearch(e.target.value)} />
       </div>
 
+      {/* Edit Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Edit Customer</DialogTitle></DialogHeader>
+          <div className="space-y-4 pt-2">
+            <div className="space-y-2"><Label>Customer Name</Label><Input value={editName} onChange={(e) => setEditName(e.target.value)} /></div>
+            <div className="space-y-2"><Label>Phone Number</Label><Input value={editPhone} onChange={(e) => setEditPhone(e.target.value)} /></div>
+            <Button className="w-full" onClick={handleEditCustomer} disabled={!editName.trim() || !editPhone.trim()}>Save Changes</Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Credit Dialog */}
       <Dialog open={creditDialogOpen} onOpenChange={setCreditDialogOpen}>
         <DialogContent>
           <DialogHeader><DialogTitle>Add Credit Sale</DialogTitle></DialogHeader>
           <div className="space-y-4 pt-2">
-            <div className="space-y-2">
-              <Label>Amount (₹)</Label>
-              <Input type="number" placeholder="e.g. 5000" value={creditAmount} onChange={(e) => setCreditAmount(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Description</Label>
-              <Input placeholder="e.g. Grocery items" value={creditDesc} onChange={(e) => setCreditDesc(e.target.value)} />
-            </div>
+            <div className="space-y-2"><Label>Amount (₹)</Label><Input type="number" placeholder="e.g. 5000" value={creditAmount} onChange={(e) => setCreditAmount(e.target.value)} /></div>
+            <div className="space-y-2"><Label>Description</Label><Input placeholder="e.g. Grocery items" value={creditDesc} onChange={(e) => setCreditDesc(e.target.value)} /></div>
             <Button className="w-full" onClick={handleAddCredit} disabled={!creditAmount}>Add Credit</Button>
           </div>
         </DialogContent>
@@ -147,18 +164,26 @@ export default function UdharPage() {
         <DialogContent>
           <DialogHeader><DialogTitle>Record Payment</DialogTitle></DialogHeader>
           <div className="space-y-4 pt-2">
-            <div className="space-y-2">
-              <Label>Amount (₹)</Label>
-              <Input type="number" placeholder="e.g. 2000" value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)} />
-            </div>
-            <div className="space-y-2">
-              <Label>Description</Label>
-              <Input placeholder="e.g. Cash payment" value={paymentDesc} onChange={(e) => setPaymentDesc(e.target.value)} />
-            </div>
+            <div className="space-y-2"><Label>Amount (₹)</Label><Input type="number" placeholder="e.g. 2000" value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)} /></div>
+            <div className="space-y-2"><Label>Description</Label><Input placeholder="e.g. Cash payment" value={paymentDesc} onChange={(e) => setPaymentDesc(e.target.value)} /></div>
             <Button className="w-full" onClick={handleRecordPayment} disabled={!paymentAmount}>Record Payment</Button>
           </div>
         </DialogContent>
       </Dialog>
+
+      {/* Delete Confirmation */}
+      <AlertDialog open={!!deleteId} onOpenChange={(open) => !open && setDeleteId(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Customer?</AlertDialogTitle>
+            <AlertDialogDescription>This will permanently delete the customer and all their transactions. This action cannot be undone.</AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteCustomer} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">Delete</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {filtered.map((customer) => (
@@ -170,12 +195,22 @@ export default function UdharPage() {
                   <Phone className="h-3 w-3" /> {customer.phone}
                 </p>
               </div>
-              <Badge variant="outline" className={riskColors[customer.riskLevel as keyof typeof riskColors]}>
+              <div className="flex items-center gap-1">
+                <button onClick={() => openEdit(customer.id)} className="rounded-md p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground transition-colors">
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+                <button onClick={() => setDeleteId(customer.id)} className="rounded-md p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive transition-colors">
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            </div>
+            <div className="mt-1">
+              <Badge variant="outline" className={`text-[10px] ${riskColors[customer.riskLevel as keyof typeof riskColors]}`}>
                 {customer.riskLevel === "high" && <AlertTriangle className="mr-1 h-3 w-3" />}
                 {customer.riskLevel}
               </Badge>
             </div>
-            <div className="mt-4 flex items-end justify-between">
+            <div className="mt-3 flex items-end justify-between">
               <div>
                 <p className="text-xs text-muted-foreground">Balance Due</p>
                 <p className="text-xl font-bold text-destructive">{formatCurrency(customer.balance)}</p>
@@ -183,12 +218,8 @@ export default function UdharPage() {
               <p className="text-xs text-muted-foreground">Last: {customer.lastPayment}</p>
             </div>
             <div className="mt-4 flex gap-2">
-              <Button size="sm" variant="outline" className="flex-1 text-xs" onClick={() => { setSelectedCustomerId(customer.id); setCreditDialogOpen(true); }}>
-                Add Credit
-              </Button>
-              <Button size="sm" className="flex-1 text-xs" onClick={() => { setSelectedCustomerId(customer.id); setPaymentDialogOpen(true); }}>
-                Record Payment
-              </Button>
+              <Button size="sm" variant="outline" className="flex-1 text-xs" onClick={() => { setSelectedCustomerId(customer.id); setCreditDialogOpen(true); }}>Add Credit</Button>
+              <Button size="sm" className="flex-1 text-xs" onClick={() => { setSelectedCustomerId(customer.id); setPaymentDialogOpen(true); }}>Record Payment</Button>
             </div>
           </div>
         ))}
