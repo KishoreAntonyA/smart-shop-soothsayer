@@ -82,6 +82,14 @@ export default function UPITrackingPage() {
     toast({ title: "QR code downloaded" });
   };
 
+  const handleShareViaWhatsApp = () => {
+    const message = `Pay me via UPI: ${savedUpiId}${qrAmount ? ` (Amount: ₹${qrAmount})` : ''}\n\nScan the QR code to send payment instantly!`;
+    const encodedMessage = encodeURIComponent(message);
+    const whatsappUrl = `https://wa.me/?text=${encodedMessage}`;
+    window.open(whatsappUrl, '_blank');
+    toast({ title: "Opening WhatsApp" });
+  };
+
   const totalReceived = payments.filter((p) => p.status === "confirmed").reduce((s, p) => s + p.amount, 0);
   const pendingAmount = payments.filter((p) => p.status === "pending").reduce((s, p) => s + p.amount, 0);
 
