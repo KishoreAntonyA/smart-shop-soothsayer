@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Smartphone, Link2, Copy, CheckCheck, Settings2, QrCode, Download } from "lucide-react";
+import { Plus, Smartphone, Link2, Copy, CheckCheck, Settings2, QrCode, Download, MessageCircle } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -80,6 +80,14 @@ export default function UPITrackingPage() {
     a.download = `upi-qr-${savedUpiId}.png`;
     a.click();
     toast({ title: "QR code downloaded" });
+  };
+
+  const handleShareViaWhatsApp = () => {
+    const message = `Pay me via UPI: ${savedUpiId}${qrAmount ? ` (Amount: ₹${qrAmount})` : ''}\n\nScan the QR code to send payment instantly!`;
+    const encodedMessage = encodeURIComponent(message);
+    const whatsappUrl = `https://wa.me/?text=${encodedMessage}`;
+    window.open(whatsappUrl, '_blank');
+    toast({ title: "Opening WhatsApp" });
   };
 
   const totalReceived = payments.filter((p) => p.status === "confirmed").reduce((s, p) => s + p.amount, 0);
@@ -208,9 +216,14 @@ export default function UPITrackingPage() {
               <Input type="number" placeholder="e.g. 500" value={qrAmount} onChange={(e) => setQrAmount(e.target.value)} />
               <p className="text-xs text-muted-foreground">Set amount to generate a fixed-amount QR</p>
             </div>
-            <Button variant="outline" className="w-full gap-2" onClick={handleDownloadQr}>
-              <Download className="h-4 w-4" /> Download QR Code
-            </Button>
+            <div className="w-full space-y-2">
+              <Button variant="outline" className="w-full gap-2" onClick={handleDownloadQr}>
+                <Download className="h-4 w-4" /> Download QR Code
+              </Button>
+              <Button variant="outline" className="w-full gap-2" onClick={handleShareViaWhatsApp}>
+                <MessageCircle className="h-4 w-4" /> Share on WhatsApp
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
