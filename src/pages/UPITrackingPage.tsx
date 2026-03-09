@@ -216,9 +216,14 @@ export default function UPITrackingPage() {
               <Input type="number" placeholder="e.g. 500" value={qrAmount} onChange={(e) => setQrAmount(e.target.value)} />
               <p className="text-xs text-muted-foreground">Set amount to generate a fixed-amount QR</p>
             </div>
-            <Button variant="outline" className="w-full gap-2" onClick={handleDownloadQr}>
-              <Download className="h-4 w-4" /> Download QR Code
-            </Button>
+            <div className="w-full space-y-2">
+              <Button variant="outline" className="w-full gap-2" onClick={handleDownloadQr}>
+                <Download className="h-4 w-4" /> Download QR Code
+              </Button>
+              <Button variant="outline" className="w-full gap-2" onClick={handleShareViaWhatsApp}>
+                <MessageCircle className="h-4 w-4" /> Share on WhatsApp
+              </Button>
+            </div>
           </div>
         </DialogContent>
       </Dialog>
