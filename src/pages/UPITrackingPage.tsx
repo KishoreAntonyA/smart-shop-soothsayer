@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Plus, Smartphone, Link2, Copy, CheckCheck, Settings2, QrCode, Download } from "lucide-react";
+import { Plus, Smartphone, Link2, Copy, CheckCheck, Settings2, QrCode, Download, MessageCircle } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
