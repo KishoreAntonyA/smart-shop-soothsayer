@@ -2,66 +2,103 @@ import { useMemo } from "react";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
-import { format, startOfMonth, endOfMonth, startOfYear, endOfYear, isWithinInterval, parseISO } from "date-fns";
+import { format, subDays, parseISO, isToday, startOfMonth, endOfMonth, startOfYear, endOfYear, isWithinInterval } from "date-fns";
 import StatCard from "@/components/StatCard";
-import { TrendingUp, TrendingDown, IndianRupee, BarChart3 } from "lucide-react";
-import { dailyProfitData, expenses as mockExpenses, formatCurrency } from "@/lib/mockData";
+import { TrendingUp, TrendingDown, IndianRupee, BarChart3, Loader2 } from "lucide-react";
+import { formatCurrency } from "@/lib/mockData";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useExpenses, useTransactions } from "@/hooks/useBusinessData";
 
 export default function ProfitPage() {
+  const { data: expenses = [], isLoading: loadingExp } = useExpenses();
+  const { data: transactions = [], isLoading: loadingTx } = useTransactions();
+  const isLoading = loadingExp || loadingTx;
   const today = new Date();
-  const todayStr = format(today, "yyyy-MM-dd");
 
-  // Weekly data (existing mock)
-  const totalSales = dailyProfitData.reduce((s, d) => s + d.sales, 0);
-  const totalExpenses = dailyProfitData.reduce((s, d) => s + d.expenses, 0);
-  const totalProfit = totalSales - totalExpenses;
+  // Helper: get sales & expenses for a date range
+  const calcRange = (start: Date, end: Date) => {
+    const rangeExp = expenses.filter((e) => isWithinInterval(parseISO(e.created_at), { start, end }));
+    const rangeTx = transactions.filter((t) => isWithinInterval(parseISO(t.created_at), { start, end }));
+    const sales = rangeTx.filter((t) => t.type === "credit").reduce((s, t) => s + Number(t.amount), 0);
+    const expTotal = rangeExp.reduce((s, e) => s + Number(e.amount), 0);
+    return { sales, expenses: expTotal, profit: sales - expTotal, expenseList: rangeExp };
+  };
 
   // Today
-  const todayData = dailyProfitData.find((d) => d.day === format(today, "EEE")) || { sales: 0, expenses: 0, profit: 0 };
+  const todayData = useMemo(() => {
+    const todayExp = expenses.filter((e) => isToday(parseISO(e.created_at)));
+    const todayTx = transactions.filter((t) => isToday(parseISO(t.created_at)));
+    const sales = todayTx.filter((t) => t.type === "credit").reduce((s, t) => s + Number(t.amount), 0);
+    const expTotal = todayExp.reduce((s, e) => s + Number(e.amount), 0);
+    return { sales, expenses: expTotal, profit: sales - expTotal };
+  }, [expenses, transactions]);
 
-  // Monthly tally from mock expenses
-  const monthStart = startOfMonth(today);
-  const monthEnd = endOfMonth(today);
-  const monthlyExpenses = useMemo(
-    () => mockExpenses.filter((e) => isWithinInterval(parseISO(e.date), { start: monthStart, end: monthEnd })),
-    []
-  );
-  const monthlyExpenseTotal = monthlyExpenses.reduce((s, e) => s + e.amount, 0);
-  const monthlySalesEstimate = monthlyExpenseTotal * 2.5; // estimate from weekly ratio
-  const monthlyProfit = monthlySalesEstimate - monthlyExpenseTotal;
+  // Weekly chart data
+  const weeklyData = useMemo(() => {
+    const days: { day: string; sales: number; expenses: number }[] = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = subDays(today, i);
+      const dayStr = format(d, "yyyy-MM-dd");
+      const daySales = transactions
+        .filter((t) => t.type === "credit" && format(parseISO(t.created_at), "yyyy-MM-dd") === dayStr)
+        .reduce((s, t) => s + Number(t.amount), 0);
+      const dayExp = expenses
+        .filter((e) => format(parseISO(e.created_at), "yyyy-MM-dd") === dayStr)
+        .reduce((s, e) => s + Number(e.amount), 0);
+      days.push({ day: format(d, "EEE"), sales: daySales, expenses: dayExp });
+    }
+    return days;
+  }, [transactions, expenses]);
 
-  // Yearly tally
-  const yearStart = startOfYear(today);
-  const yearEnd = endOfYear(today);
-  const yearlyExpenses = useMemo(
-    () => mockExpenses.filter((e) => isWithinInterval(parseISO(e.date), { start: yearStart, end: yearEnd })),
-    []
-  );
-  const yearlyExpenseTotal = yearlyExpenses.reduce((s, e) => s + e.amount, 0);
-  const yearlySalesEstimate = yearlyExpenseTotal * 2.5;
-  const yearlyProfit = yearlySalesEstimate - yearlyExpenseTotal;
+  const weeklyTotals = useMemo(() => {
+    const s = weeklyData.reduce((a, d) => a + d.sales, 0);
+    const e = weeklyData.reduce((a, d) => a + d.expenses, 0);
+    return { sales: s, expenses: e, profit: s - e };
+  }, [weeklyData]);
 
-  // Monthly breakdown for yearly view
+  // Monthly
+  const monthlyData = useMemo(() => calcRange(startOfMonth(today), endOfMonth(today)), [expenses, transactions]);
+
+  // Yearly
+  const yearlyData = useMemo(() => calcRange(startOfYear(today), endOfYear(today)), [expenses, transactions]);
+
+  // Monthly breakdown for yearly chart
   const monthlyBreakdown = useMemo(() => {
     const months: Record<string, { sales: number; expenses: number; profit: number }> = {};
-    yearlyExpenses.forEach((e) => {
-      const m = format(parseISO(e.date), "MMM");
+    const yearStart = startOfYear(today);
+    const yearEnd = endOfYear(today);
+    const yearExp = expenses.filter((e) => isWithinInterval(parseISO(e.created_at), { start: yearStart, end: yearEnd }));
+    const yearTx = transactions.filter((t) => isWithinInterval(parseISO(t.created_at), { start: yearStart, end: yearEnd }));
+
+    yearExp.forEach((e) => {
+      const m = format(parseISO(e.created_at), "MMM");
       if (!months[m]) months[m] = { sales: 0, expenses: 0, profit: 0 };
-      months[m].expenses += e.amount;
-      months[m].sales += e.amount * 2.5;
-      months[m].profit += e.amount * 1.5;
+      months[m].expenses += Number(e.amount);
     });
+    yearTx.filter((t) => t.type === "credit").forEach((t) => {
+      const m = format(parseISO(t.created_at), "MMM");
+      if (!months[m]) months[m] = { sales: 0, expenses: 0, profit: 0 };
+      months[m].sales += Number(t.amount);
+    });
+    Object.values(months).forEach((v) => { v.profit = v.sales - v.expenses; });
     return Object.entries(months).map(([month, data]) => ({ month, ...data }));
-  }, [yearlyExpenses]);
+  }, [expenses, transactions]);
 
   const SummaryCards = ({ sales, expenses, profit }: { sales: number; expenses: number; profit: number }) => (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
       <StatCard title="Total Sales" value={formatCurrency(sales)} icon={IndianRupee} variant="info" />
       <StatCard title="Total Expenses" value={formatCurrency(expenses)} icon={TrendingDown} variant="destructive" />
-      <StatCard title="Net Profit" value={formatCurrency(profit)} icon={TrendingUp} variant="success" />
+      <StatCard title="Net Profit" value={formatCurrency(profit)} icon={TrendingUp} variant={profit >= 0 ? "success" : "destructive"} />
     </div>
   );
+
+  if (isLoading) {
+    return (
+      <div className="flex min-h-[50vh] items-center justify-center">
+        <Loader2 className="h-8 w-8 animate-spin text-primary" />
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -78,7 +115,6 @@ export default function ProfitPage() {
           <TabsTrigger value="yearly">Yearly</TabsTrigger>
         </TabsList>
 
-        {/* Today */}
         <TabsContent value="today" className="space-y-4 mt-4">
           <div className="rounded-xl border border-border bg-card p-5 flex items-center justify-between">
             <div className="flex items-center gap-3">
@@ -91,67 +127,72 @@ export default function ProfitPage() {
             <p className="text-xs text-muted-foreground">{format(today, "dd MMM yyyy")}</p>
           </div>
           <SummaryCards sales={todayData.sales} expenses={todayData.expenses} profit={todayData.profit} />
+          {todayData.sales === 0 && todayData.expenses === 0 && (
+            <p className="text-center text-sm text-muted-foreground py-4">No entries today. Add transactions & expenses to see profit.</p>
+          )}
         </TabsContent>
 
-        {/* Weekly */}
         <TabsContent value="weekly" className="space-y-4 mt-4">
-          <SummaryCards sales={totalSales} expenses={totalExpenses} profit={totalProfit} />
+          <SummaryCards sales={weeklyTotals.sales} expenses={weeklyTotals.expenses} profit={weeklyTotals.profit} />
           <div className="rounded-xl border border-border bg-card p-5">
-            <h3 className="mb-4 text-base font-semibold text-card-foreground">Sales vs Expenses (This Week)</h3>
+            <h3 className="mb-4 text-base font-semibold text-card-foreground">Sales vs Expenses (Last 7 Days)</h3>
             <div className="h-72">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={dailyProfitData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(214, 25%, 90%)" />
-                  <XAxis dataKey="day" fontSize={12} />
-                  <YAxis fontSize={12} tickFormatter={(v) => `₹${v / 1000}k`} />
-                  <Tooltip formatter={(v: number) => formatCurrency(v)} />
-                  <Bar dataKey="sales" fill="hsl(217, 91%, 50%)" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="expenses" fill="hsl(0, 72%, 55%)" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
+              {weeklyData.some((d) => d.sales > 0 || d.expenses > 0) ? (
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={weeklyData}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(214, 25%, 90%)" />
+                    <XAxis dataKey="day" fontSize={12} />
+                    <YAxis fontSize={12} tickFormatter={(v) => `₹${v / 1000}k`} />
+                    <Tooltip formatter={(v: number) => formatCurrency(v)} />
+                    <Bar dataKey="sales" fill="hsl(217, 91%, 50%)" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="expenses" fill="hsl(0, 72%, 55%)" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="flex h-full items-center justify-center text-sm text-muted-foreground">Add data to see chart</div>
+              )}
             </div>
           </div>
         </TabsContent>
 
-        {/* Monthly */}
         <TabsContent value="monthly" className="space-y-4 mt-4">
           <div className="rounded-xl border border-border bg-card p-5 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="rounded-lg bg-success/10 p-2.5"><BarChart3 className="h-5 w-5 text-success" /></div>
               <div>
                 <p className="text-sm text-muted-foreground">Monthly Profit — {format(today, "MMMM yyyy")}</p>
-                <p className="text-2xl font-bold text-card-foreground">{formatCurrency(monthlyProfit)}</p>
+                <p className="text-2xl font-bold text-card-foreground">{formatCurrency(monthlyData.profit)}</p>
               </div>
             </div>
           </div>
-          <SummaryCards sales={monthlySalesEstimate} expenses={monthlyExpenseTotal} profit={monthlyProfit} />
-          <div className="rounded-xl border border-border bg-card p-4 space-y-3">
-            <h4 className="text-sm font-semibold text-card-foreground">Expense Breakdown</h4>
-            {monthlyExpenses.map((e) => (
-              <div key={e.id} className="flex items-center justify-between rounded-lg bg-muted/50 p-3">
-                <div>
-                  <p className="text-sm font-medium text-card-foreground">{e.description}</p>
-                  <p className="text-xs text-muted-foreground">{e.category} · {e.date}</p>
+          <SummaryCards sales={monthlyData.sales} expenses={monthlyData.expenses} profit={monthlyData.profit} />
+          {monthlyData.expenseList.length > 0 && (
+            <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+              <h4 className="text-sm font-semibold text-card-foreground">This Month's Expenses</h4>
+              {monthlyData.expenseList.map((e) => (
+                <div key={e.id} className="flex items-center justify-between rounded-lg bg-muted/50 p-3">
+                  <div>
+                    <p className="text-sm font-medium text-card-foreground">{e.description}</p>
+                    <p className="text-xs text-muted-foreground">{e.category} · {format(parseISO(e.created_at), "dd MMM")}</p>
+                  </div>
+                  <span className="text-sm font-bold text-destructive">{formatCurrency(Number(e.amount))}</span>
                 </div>
-                <span className="text-sm font-bold text-destructive">{formatCurrency(e.amount)}</span>
-              </div>
-            ))}
-            {monthlyExpenses.length === 0 && <p className="py-4 text-center text-sm text-muted-foreground">No expenses this month</p>}
-          </div>
+              ))}
+            </div>
+          )}
         </TabsContent>
 
-        {/* Yearly */}
         <TabsContent value="yearly" className="space-y-4 mt-4">
           <div className="rounded-xl border border-border bg-card p-5 flex items-center justify-between">
             <div className="flex items-center gap-3">
               <div className="rounded-lg bg-success/10 p-2.5"><BarChart3 className="h-5 w-5 text-success" /></div>
               <div>
                 <p className="text-sm text-muted-foreground">Yearly Profit — {format(today, "yyyy")}</p>
-                <p className="text-2xl font-bold text-card-foreground">{formatCurrency(yearlyProfit)}</p>
+                <p className="text-2xl font-bold text-card-foreground">{formatCurrency(yearlyData.profit)}</p>
               </div>
             </div>
           </div>
-          <SummaryCards sales={yearlySalesEstimate} expenses={yearlyExpenseTotal} profit={yearlyProfit} />
+          <SummaryCards sales={yearlyData.sales} expenses={yearlyData.expenses} profit={yearlyData.profit} />
           {monthlyBreakdown.length > 0 && (
             <div className="rounded-xl border border-border bg-card p-5">
               <h3 className="mb-4 text-base font-semibold text-card-foreground">Monthly Breakdown</h3>
